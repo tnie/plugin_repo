@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>上传插件 - 插件仓库</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; }
+        .container { padding: 20px; }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        textarea { height: 100px; resize: vertical; }
+        .row { display: flex; gap: 20px; }
+        .col { flex: 1; }
+        .required::after { content: " *"; color: red; }
+        button { padding: 10px 30px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .error { color: red; margin-bottom: 15px; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <a href="/">插件列表</a>
+            <a href="/logout">退出登录</a>
+        </div>
+        
+        <h2>上传新插件</h2>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label class="required">插件名称:</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="required">插件类型:</label>
+                        <select name="type" required>
+                            <option value="">选择类型</option>
+                            <option value="executable">可执行文件</option>
+                            <option value="library">库文件</option>
+                            <option value="script">脚本</option>
+                            <option value="package">包/压缩文件</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="required">版本:</label>
+                        <input type="text" name="version" placeholder="例如: 1.0.0" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>作者:</label>
+                        <input type="text" name="author">
+                    </div>
+                </div>
+                
+                <div class="col">
+                    <div class="form-group">
+                        <label>支持平台:</label>
+                        <input type="text" name="supported_platform" placeholder="例如: Windows, Linux, macOS">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>依赖项:</label>
+                        <input type="text" name="dependencies" placeholder="用逗号分隔">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>许可证:</label>
+                        <input type="text" name="license" placeholder="例如: MIT, GPL">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>图标:</label>
+                        <input type="file" name="icon_file" accept="image/*">
+                        <small>支持 PNG, JPG, SVG 格式</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>描述:</label>
+                <textarea name="description" placeholder="插件功能描述..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="required">插件文件:</label>
+                <input type="file" name="plugin_file" required>
+                <small>支持: {{ allowed_extensions }}</small>
+            </div>
+            
+            <button type="submit">上传插件</button>
+        </form>
+    </div>
+</body>
+</html>
