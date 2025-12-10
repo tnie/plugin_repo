@@ -1,11 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, jsonify
 import os
 import hashlib
+import mimetypes
 from werkzeug.utils import secure_filename
 from config import Config
 from database import Database
-from ftp_manager import FTPManager  # 新增导入
-import mimetypes
+from ftp_manager import FTPManager
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -70,6 +70,7 @@ def upload():
         supported_platform = request.form.get('supported_platform')
         dependencies = request.form.get('dependencies')
         license_type = request.form.get('license')
+        gui_type = request.form.get('gui', 'button')  # 新增: 获取 GUI 类型
         
         # 处理文件上传
         if 'plugin_file' not in request.files:
@@ -112,18 +113,52 @@ def upload():
                 'file_size': file_size,
                 'supported_platform': supported_platform,
                 'dependencies': dependencies,
-                'license': license_type
+                'license': license_type,
+                'gui': gui_type  # 新增: GUI 类型
             }
             
             plugin_id = db.add_plugin(plugin_data)
             
-            # 更新 list.ini 文件（新增）
+            # 更新 list.ini 文件
             if app.config['FTP_ENABLED']:
                 ftp_manager.update_ini_file()
             
             return redirect(url_for('index'))
     
     return render_template('upload.html', allowed_extensions=', '.join(Config.ALLOWED_EXTENSIONS))
+
+@app.route('/delete/<int:plugin_id>', methods=['POST'])
+def delete_plugin(plugin_id):
+    """删除插件"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': '未授权'}), 401
+    
+    # 获取插件信息
+    plugin = db.delete_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': '插件不存在'}), 404
+    
+    try:
+        # 删除插件文件
+        if plugin['filename']:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], plugin['filename'])
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        
+        # 删除图标文件（如果存在）
+        if plugin['icon_path']:
+            icon_path = os.path.join(app.config['ICON_FOLDER'], os.path.basename(plugin['icon_path']))
+            if os.path.exists(icon_path):
+                os.remove(icon_path)
+        
+        # 更新 list.ini 文件
+        if app.config['FTP_ENABLED']:
+            ftp_manager.update_ini_file()
+        
+        return jsonify({'success': True, 'message': '插件删除成功'})
+    
+    except Exception as e:
+        return jsonify({'error': f'删除文件时出错: {str(e)}'}), 500
 
 @app.route('/download/<int:plugin_id>')
 def download_plugin(plugin_id):

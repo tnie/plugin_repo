@@ -86,6 +86,20 @@
                         <input type="text" name="license" placeholder="例如: MIT, GPL">
                     </div>
                     
+                    <!-- 新增: GUI 类型选择 -->
+                    <div class="form-group">
+                        <label class="required">交互入口:</label>
+                        <select name="gui" required>
+                            <option value="button">按钮 (button)</option>
+                            <option value="menu">菜单 (menu)</option>
+                        </select>
+                        <small>插件在界面中的交互方式</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
                     <div class="form-group">
                         <label>图标:</label>
                         <input type="file" name="icon_file" accept="image/*">

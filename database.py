@@ -32,7 +32,8 @@ class Database:
                 file_size INTEGER,
                 supported_platform TEXT,
                 dependencies TEXT,
-                license TEXT
+                license TEXT,
+                gui TEXT DEFAULT 'button'  -- 新增: 交互入口类型
             )
         ''')
         
@@ -64,8 +65,8 @@ class Database:
             INSERT INTO plugins (
                 name, type, description, icon_path, version, 
                 author, checksum, filename, original_filename,
-                file_size, supported_platform, dependencies, license
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                file_size, supported_platform, dependencies, license, gui
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             plugin_data['name'],
             plugin_data['type'],
@@ -79,13 +80,38 @@ class Database:
             plugin_data.get('file_size', 0),
             plugin_data.get('supported_platform', ''),
             plugin_data.get('dependencies', ''),
-            plugin_data.get('license', '')
+            plugin_data.get('license', ''),
+            plugin_data.get('gui', 'button')  # 新增: 默认值为 button
         ))
         
         plugin_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return plugin_id
+    
+    def delete_plugin(self, plugin_id):
+        """删除插件"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 先获取插件信息，用于删除相关文件
+        cursor.execute('SELECT filename, icon_path FROM plugins WHERE id = ?', (plugin_id,))
+        plugin = cursor.fetchone()
+        
+        if plugin:
+            # 删除数据库记录
+            cursor.execute('DELETE FROM plugins WHERE id = ?', (plugin_id,))
+            conn.commit()
+            
+        conn.close()
+        
+        # 返回插件信息，用于删除文件
+        if plugin:
+            return {
+                'filename': plugin[0],
+                'icon_path': plugin[1]
+            }
+        return None
     
     def get_all_plugins(self):
         """获取所有插件"""

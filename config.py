@@ -28,6 +28,13 @@ class Config:
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         os.makedirs(app.config['ICON_FOLDER'], exist_ok=True)
         
+        # 确保 list.ini 文件存在（如果不存在，创建空文件）
+        list_ini_path = app.config['LIST_INI_PATH']
+        if not os.path.exists(list_ini_path):
+            with open(list_ini_path, 'w', encoding='utf-8') as f:
+                f.write("# 插件列表文件\n")
+                f.write("# 自动生成，请勿手动编辑\n\n")
+        
         # 确保默认图标存在
         default_icon = os.path.join(app.config['ICON_FOLDER'], 'default.png')
         if not os.path.exists(default_icon):
@@ -35,8 +42,13 @@ class Config:
             try:
                 from PIL import Image, ImageDraw
                 img = Image.new('RGB', (64, 64), color='#007bff')
-                draw = ImageDraw.Draw(img)
+                draw = Image.draw(img)
                 draw.ellipse([10, 10, 54, 54], fill='#ffffff')
                 img.save(default_icon, 'PNG')
             except:
-                pass  # 如果无法创建默认图标，跳过
+                # 如果无法创建默认图标，创建一个空文件
+                try:
+                    with open(default_icon, 'w') as f:
+                        f.write('')
+                except:
+                    pass  # 如果无法创建默认图标，跳过

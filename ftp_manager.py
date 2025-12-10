@@ -1,5 +1,3 @@
-# [file name]: ftp_manager.py
-# [file content begin]
 import configparser
 import os
 from database import Database
@@ -39,8 +37,9 @@ class FTPManager:
             ini_type = type_mapping.get(db_type, 'app')
             config.set(section_name, 'type', ini_type)
             
-            # GUI 类型（默认为 button）
-            config.set(section_name, 'gui', 'button')
+            # GUI 类型（从数据库获取）
+            gui_type = plugin.get('gui', 'button')
+            config.set(section_name, 'gui', gui_type)
             
             # 图标路径 - 使用 FTP 路径
             icon_path = plugin.get('icon_path', '')
@@ -49,7 +48,7 @@ class FTPManager:
                 ftp_icon_path = self._convert_to_ftp_path(icon_path)
                 config.set(section_name, 'icon', ftp_icon_path)
             else:
-                config.set(section_name, 'icon', '../icons/default.png')
+                config.set(section_name, 'icon', 'icons/default.png')
             
             # 文件路径 - 使用 FTP 路径
             filename = plugin.get('filename', '')
@@ -100,4 +99,3 @@ class FTPManager:
             with open(self.ini_path, 'r', encoding='utf-8') as f:
                 return f.read()
         return ""
-# [file content end]
