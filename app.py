@@ -4,6 +4,7 @@ import hashlib
 from werkzeug.utils import secure_filename
 from config import Config
 from database import Database
+from ftp_manager import FTPManager  # 新增导入
 import mimetypes
 
 app = Flask(__name__)
@@ -12,6 +13,12 @@ Config.init_app(app)
 
 # 初始化数据库
 db = Database(app.config['DATABASE'])
+
+# 初始化 FTP 管理器
+ftp_manager = FTPManager(
+    ini_path=app.config['LIST_INI_PATH'],
+    db_path=app.config['DATABASE']
+)
 
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
@@ -108,10 +115,15 @@ def upload():
                 'license': license_type
             }
             
-            db.add_plugin(plugin_data)
+            plugin_id = db.add_plugin(plugin_data)
+            
+            # 更新 list.ini 文件（新增）
+            if app.config['FTP_ENABLED']:
+                ftp_manager.update_ini_file()
+            
             return redirect(url_for('index'))
     
-    return render_template('upload.html')
+    return render_template('upload.html', allowed_extensions=', '.join(Config.ALLOWED_EXTENSIONS))
 
 @app.route('/download/<int:plugin_id>')
 def download_plugin(plugin_id):
@@ -140,6 +152,11 @@ def api_plugins():
     # 转换为API响应格式
     result = []
     for plugin in plugins:
+        # 添加 FTP 下载地址（新增）
+        ftp_download_url = None
+        if app.config['FTP_ENABLED'] and plugin.get('filename'):
+            ftp_download_url = f"{app.config['FTP_BASE_URL']}uploads/{plugin['filename']}"
+        
         result.append({
             'id': plugin['id'],
             'name': plugin['name'],
@@ -149,9 +166,14 @@ def api_plugins():
             'author': plugin['author'],
             'checksum': plugin['checksum'],
             'download_url': url_for('download_plugin', plugin_id=plugin['id'], _external=True),
+            'ftp_download_url': ftp_download_url,  # 新增
             'file_size': plugin['file_size'],
             'upload_time': plugin['upload_time'],
-            'download_count': plugin['download_count']
+            'download_count': plugin['download_count'],
+            'icon_path': plugin.get('icon_path', ''),
+            'supported_platform': plugin.get('supported_platform', ''),
+            'dependencies': plugin.get('dependencies', ''),
+            'license': plugin.get('license', '')
         })
     
     return jsonify(result)
@@ -163,6 +185,11 @@ def api_plugin_detail(plugin_id):
     if not plugin:
         return jsonify({'error': 'Plugin not found'}), 404
     
+    # 添加 FTP 下载地址（新增）
+    ftp_download_url = None
+    if app.config['FTP_ENABLED'] and plugin.get('filename'):
+        ftp_download_url = f"{app.config['FTP_BASE_URL']}uploads/{plugin['filename']}"
+    
     return jsonify({
         'id': plugin['id'],
         'name': plugin['name'],
@@ -172,13 +199,37 @@ def api_plugin_detail(plugin_id):
         'author': plugin['author'],
         'checksum': plugin['checksum'],
         'download_url': url_for('download_plugin', plugin_id=plugin['id'], _external=True),
+        'ftp_download_url': ftp_download_url,  # 新增
         'file_size': plugin['file_size'],
         'upload_time': plugin['upload_time'],
         'download_count': plugin['download_count'],
         'supported_platform': plugin['supported_platform'],
         'dependencies': plugin['dependencies'],
-        'license': plugin['license']
+        'license': plugin['license'],
+        'icon_path': plugin.get('icon_path', '')
     })
+
+@app.route('/api/ftp/list')
+def get_ftp_list():
+    """获取 list.ini 文件内容（新增）"""
+    if not app.config['FTP_ENABLED']:
+        return jsonify({'error': 'FTP功能未启用'}), 400
+    
+    ini_content = ftp_manager.get_ini_content()
+    return ini_content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+@app.route('/ftp/list.ini')
+def serve_list_ini():
+    """提供 list.ini 文件下载（新增）"""
+    if not app.config['FTP_ENABLED']:
+        return "FTP功能未启用", 404
+    
+    return send_from_directory(
+        os.path.dirname(app.config['LIST_INI_PATH']),
+        os.path.basename(app.config['LIST_INI_PATH']),
+        as_attachment=False,
+        mimetype='text/plain'
+    )
 
 @app.route('/logout')
 def logout():

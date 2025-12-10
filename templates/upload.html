@@ -17,6 +17,7 @@
         .error { color: red; margin-bottom: 15px; }
         .nav { margin-bottom: 20px; }
         .nav a { margin-right: 15px; }
+        .info-box { background: #f8f9fa; border-left: 4px solid #007bff; padding: 10px; margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -31,6 +32,12 @@
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
+        
+        <div class="info-box">
+            <strong>FTP 信息:</strong>
+            <p>插件上传后会自动更新 FTP 列表文件。FTP 用户可以通过下载 <code>list.ini</code> 文件获取插件列表。</p>
+            <p>FTP 列表文件地址: <a href="/ftp/list.ini" target="_blank">/ftp/list.ini</a></p>
+        </div>
         
         <form method="POST" enctype="multipart/form-data">
             <div class="row">

@@ -1,0 +1,19 @@
+[PluginInfo]
+name = wea
+description = 测试天气插件
+version = 1.1.2
+type = lib
+gui = button
+icon = ../icons/d7fdd7edf1bafcb482a8478e513281a5_fake_20201201165340_tumnk.png
+path = ../uploads/d7fdd7edf1bafcb482a8478e513281a5_fake.dll
+# author = niel
+
+[PluginInfo.1]
+name = cal
+description = 计算器
+version = 1.0.0
+type = app
+gui = button
+icon = ../icons/default.png
+path = ../uploads/6c954abf82ab62869276ba6a1c1e5f57_qt5_demo.exe
+
