@@ -22,6 +22,8 @@ ftp_manager = FTPManager(
 
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
+    if '.' not in filename:
+        return True
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
@@ -274,4 +276,4 @@ def logout():
 
 if __name__ == '__main__':
     app.secret_key = app.config['SECRET_KEY']
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5201)
