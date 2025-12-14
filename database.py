@@ -127,7 +127,7 @@ class Database:
         conn.close()
         return [dict(plugin) for plugin in plugins]
     
-    def get_plugin_by_id(self, plugin_id):
+    def get_plugin_by_id(self, plugin_id, increment_download=False):
         """根据ID获取插件"""
         conn = self.get_connection()
         conn.row_factory = sqlite3.Row
@@ -136,8 +136,8 @@ class Database:
         cursor.execute('SELECT * FROM plugins WHERE id = ?', (plugin_id,))
         plugin = cursor.fetchone()
         
-        # 增加下载计数
-        if plugin:
+        # 仅在需要时增加下载计数
+        if plugin and increment_download:
             cursor.execute('''
                 UPDATE plugins SET download_count = download_count + 1 
                 WHERE id = ?
@@ -146,7 +146,18 @@ class Database:
         
         conn.close()
         return dict(plugin) if plugin else None
-    
+
+    def increment_download_count(self, plugin_id):
+        """专门用于增加下载计数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE plugins SET download_count = download_count + 1 
+            WHERE id = ?
+        ''', (plugin_id,))
+        conn.commit()
+        conn.close()
+        
     def verify_admin(self, username, password):
         """验证管理员登录"""
         conn = self.get_connection()

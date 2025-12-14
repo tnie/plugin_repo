@@ -177,7 +177,7 @@ def delete_plugin(plugin_id):
 @app.route('/download/<int:plugin_id>')
 def download_plugin(plugin_id):
     """下载插件文件"""
-    plugin = db.get_plugin_by_id(plugin_id)
+    plugin = db.get_plugin_by_id(plugin_id, increment_download=True)
     if not plugin:
         return "插件不存在", 404
     
@@ -230,7 +230,7 @@ def api_plugins():
 @app.route('/api/plugin/<int:plugin_id>')
 def api_plugin_detail(plugin_id):
     """API：获取插件详情"""
-    plugin = db.get_plugin_by_id(plugin_id)
+    plugin = db.get_plugin_by_id(plugin_id, increment_download=False)
     if not plugin:
         return jsonify({'error': 'Plugin not found'}), 404
     
@@ -261,7 +261,7 @@ def api_plugin_detail(plugin_id):
 @app.route('/detail/<int:plugin_id>', methods=['GET', 'POST'])
 def plugin_detail(plugin_id):
     """插件详情页面"""
-    plugin = db.get_plugin_by_id(plugin_id)
+    plugin = db.get_plugin_by_id(plugin_id, increment_download=False)
     if not plugin:
         return "插件不存在", 404
     
