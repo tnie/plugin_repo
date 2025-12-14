@@ -131,7 +131,7 @@
             </div>
             <div class="plugin-actions">
                 <a href="/download/{{ plugin.id }}" class="download-btn">下载插件</a>
-                <a href="javascript:void(0)" onclick="alert('插件详情将在后续版本中完善')" class="info-btn">详情</a>
+                <a href="/detail/{{ plugin.id }}" class="info-btn">详情</a>
                 {% if session.get('admin_logged_in') %}
                 <button class="delete-btn" onclick="deletePlugin({{ plugin.id }}, '{{ plugin.name }}')">删除</button>
                 {% endif %}

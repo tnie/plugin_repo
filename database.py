@@ -161,3 +161,30 @@ class Database:
         result = cursor.fetchone()
         conn.close()
         return result is not None
+    
+    def update_plugin(self, plugin_id, update_data):
+        """更新插件信息"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # 构建更新SQL
+        update_fields = []
+        values = []
+        
+        for field, value in update_data.items():
+            update_fields.append(f"{field} = ?")
+            values.append(value)
+        
+        values.append(plugin_id)
+        
+        update_sql = f'''
+            UPDATE plugins SET
+            {', '.join(update_fields)}
+            WHERE id = ?
+        '''
+        
+        cursor.execute(update_sql, values)
+        conn.commit()
+        conn.close()
+        
+        return True

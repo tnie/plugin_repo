@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_file, session, jsonify, send_from_directory
 import os
 import hashlib
 import mimetypes
@@ -34,6 +34,18 @@ def calculate_checksum(filepath):
         for byte_block in iter(lambda: f.read(4096), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+@app.template_filter('filesizeformat')
+def filesizeformat_filter(value):
+    """格式化文件大小为可读格式"""
+    if value is None:
+        return '0 Bytes'
+    
+    for unit in ['Bytes', 'KB', 'MB', 'GB', 'TB']:
+        if value < 1024.0:
+            return f"{value:.2f} {unit}"
+        value /= 1024.0
+    return f"{value:.2f} PB"
 
 @app.route('/')
 def index():
@@ -245,6 +257,116 @@ def api_plugin_detail(plugin_id):
         'license': plugin['license'],
         'icon_path': plugin.get('icon_path', '')
     })
+
+@app.route('/detail/<int:plugin_id>', methods=['GET', 'POST'])
+def plugin_detail(plugin_id):
+    """插件详情页面"""
+    plugin = db.get_plugin_by_id(plugin_id)
+    if not plugin:
+        return "插件不存在", 404
+    
+    if request.method == 'POST':
+        if not session.get('admin_logged_in'):
+            return jsonify({'error': '未授权'}), 401
+        
+        # 获取表单数据
+        name = request.form.get('name')
+        plugin_type = request.form.get('type')
+        description = request.form.get('description')
+        version = request.form.get('version')
+        author = request.form.get('author')
+        supported_platform = request.form.get('supported_platform')
+        dependencies = request.form.get('dependencies')
+        license_type = request.form.get('license')
+        gui_type = request.form.get('gui', 'button')
+        
+        # 更新数据库
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE plugins SET
+                name = ?, type = ?, description = ?, version = ?,
+                author = ?, supported_platform = ?, dependencies = ?,
+                license = ?, gui = ?
+            WHERE id = ?
+        ''', (
+            name, plugin_type, description, version,
+            author, supported_platform, dependencies,
+            license_type, gui_type, plugin_id
+        ))
+        
+        # 处理图标上传
+        if 'icon_file' in request.files and request.files['icon_file'].filename:
+            icon_file = request.files['icon_file']
+            if icon_file.filename:
+                icon_filename = f"{plugin['filename'].split('.')[0]}_{secure_filename(icon_file.filename)}"
+                icon_path = os.path.join(app.config['ICON_FOLDER'], icon_filename)
+                icon_file.save(icon_path)
+                
+                # 更新数据库中的图标路径
+                cursor.execute('UPDATE plugins SET icon_path = ? WHERE id = ?', (icon_path, plugin_id))
+        
+        # 处理插件文件更新
+        if 'plugin_file' in request.files and request.files['plugin_file'].filename:
+            file = request.files['plugin_file']
+            if file.filename and allowed_file(file.filename):
+                # 删除旧文件
+                old_filepath = os.path.join(app.config['UPLOAD_FOLDER'], plugin['filename'])
+                if os.path.exists(old_filepath):
+                    os.remove(old_filepath)
+                
+                # 保存新文件
+                original_filename = secure_filename(file.filename)
+                filename = f"{hashlib.md5(f'{name}_{version}'.encode()).hexdigest()}_{original_filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                
+                # 计算新文件的大小和校验和
+                file_size = os.path.getsize(filepath)
+                checksum = calculate_checksum(filepath)
+                
+                # 更新数据库
+                cursor.execute('''
+                    UPDATE plugins SET 
+                        filename = ?, original_filename = ?,
+                        file_size = ?, checksum = ?
+                    WHERE id = ?
+                ''', (filename, original_filename, file_size, checksum, plugin_id))
+        
+        conn.commit()
+        conn.close()
+        
+        # 更新 list.ini 文件
+        if app.config['FTP_ENABLED']:
+            ftp_manager.update_ini_file()
+        
+        # 重新获取插件信息
+        plugin = db.get_plugin_by_id(plugin_id)
+        return render_template('detail.html', plugin=plugin, success='插件信息已更新')
+    
+    return render_template('detail.html', plugin=plugin)
+
+@app.route('/icon/<int:plugin_id>')
+def get_plugin_icon(plugin_id):
+    """获取插件图标"""
+    plugin = db.get_plugin_by_id(plugin_id)
+    if not plugin or not plugin.get('icon_path'):
+        # 返回默认图标
+        default_icon = os.path.join(app.config['ICON_FOLDER'], 'default.png')
+        if os.path.exists(default_icon):
+            return send_file(default_icon, mimetype='image/png')
+        return '', 404
+    
+    icon_path = os.path.join(app.config['ICON_FOLDER'], os.path.basename(plugin['icon_path']))
+    if os.path.exists(icon_path):
+        return send_file(icon_path, mimetype='image/png')
+    
+    default_icon = os.path.join(app.config['ICON_FOLDER'], 'default.png')
+    if os.path.exists(default_icon):
+        return send_file(default_icon, mimetype='image/png')
+    
+    return '', 404
 
 @app.route('/api/ftp/list')
 def get_ftp_list():
