@@ -64,10 +64,17 @@ class FTPManager:
                 ftp_file_path = f'uploads/{plugin["plugin_uuid"]}/{plugin["latest_version"]}/{plugin["filename"]}'
                 config.set(section_name, 'path', ftp_file_path)
             
+            # 新增属性：打分
+            rating = plugin.get('rating', 5)  # 默认5星好评
+            config.set(section_name, 'rating', str(rating))
+            
+            # 新增属性：分类
+            category = plugin.get('category', '未分类')  # 默认分类为“未分类”
+            config.set(section_name, 'category', category)
+            
             # 可选：添加其他属性作为注释
-            author = plugin.get('author', '')
-            if author:
-                config.set(section_name, '# author', author)
+            author = plugin.get('author', 'Unknown Author')
+            config.set(section_name, 'author', author)
             
             platform = plugin.get('supported_platform', '')
             if platform:

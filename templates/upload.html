@@ -77,16 +77,21 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>依赖项:</label>
-                        <input type="text" name="dependencies" placeholder="用逗号分隔">
+                        <label class="required">分类:</label>
+                        <input type="text" name="category" placeholder="例如: 导航插件" required>
                     </div>
                     
                     <div class="form-group">
-                        <label>许可证:</label>
-                        <input type="text" name="license" placeholder="例如: MIT, GPL">
+                        <label class="required">打分:</label>
+                        <select name="rating" required>
+                            <option value="5" selected>⭐⭐⭐⭐⭐</option>
+                            <option value="4">⭐⭐⭐⭐</option>
+                            <option value="3">⭐⭐⭐</option>
+                            <option value="2">⭐⭐</option>
+                            <option value="1">⭐</option>
+                        </select>
                     </div>
                     
-                    <!-- 新增: GUI 类型选择 -->
                     <div class="form-group">
                         <label class="required">交互入口:</label>
                         <select name="gui" required>

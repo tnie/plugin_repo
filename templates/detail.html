@@ -189,6 +189,27 @@
                     </div>
                 </div>
                 
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label>打分 (1-5星):</label>
+                            <select name="rating">
+                                <option value="5" selected>5 星</option>
+                                <option value="4">4 星</option>
+                                <option value="3">3 星</option>
+                                <option value="2">2 星</option>
+                                <option value="1">1 星</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label>分类:</label>
+                            <input type="text" name="category" placeholder="例如: 导航插件">
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label>新版本文件:</label>
                     <input type="file" name="plugin_file">
@@ -244,15 +265,15 @@
                     </div>
                     {% endif %}
                     
-                    {% if version.dependencies %}
+                    {% if version.rating %}
                     <div class="version-meta">
-                        依赖项: {{ version.dependencies }}
+                        打分: {{ version.rating }} 星
                     </div>
                     {% endif %}
                     
-                    {% if version.license %}
+                    {% if version.category %}
                     <div class="version-meta">
-                        许可证: {{ version.license }}
+                        分类: {{ version.category }}
                     </div>
                     {% endif %}
                     
@@ -317,13 +338,13 @@
                     'Content-Type': 'application/json',
                 },
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            .then(response => response.json().then(data => ({ status: response.status, body: data })))
+            .then(({ status, body }) => {
+                if (status === 200 && body.success) {
                     alert('版本删除成功');
                     location.reload(); // 重新加载页面
                 } else {
-                    alert(`删除失败: ${data.error}`);
+                    alert(`删除失败: ${body.error || '未知错误'}`);
                 }
             })
             .catch(error => {

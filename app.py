@@ -92,8 +92,8 @@ def upload():
         version = request.form.get('version')
         author = request.form.get('author')
         supported_platform = request.form.get('supported_platform')
-        dependencies = request.form.get('dependencies')
-        license_type = request.form.get('license')
+        category = request.form.get('category')  # 新增字段
+        rating = request.form.get('rating', '5')  # 新增字段，默认5星
         gui_type = request.form.get('gui', 'button')
         
         # 检查插件是否已存在
@@ -169,8 +169,8 @@ def upload():
                 'file_path': file_path,  # 存储完整的文件路径
                 'file_size': file_size,
                 'supported_platform': supported_platform,
-                'dependencies': dependencies,
-                'license': license_type
+                'category': category,  # 新增字段
+                'rating': rating  # 新增字段
             }
             
             version_id = db.add_plugin_version(plugin_uuid, version_data)
@@ -258,6 +258,13 @@ def delete_version(version_id):
             if os.path.exists(plugin_dir) and not os.listdir(plugin_dir):
                 os.rmdir(plugin_dir)
         
+        # 检查插件是否还有其他版本
+        plugin_uuid = version['plugin_uuid']
+        remaining_versions = db.get_plugin_versions(plugin_uuid)
+        if not remaining_versions:
+            # 删除插件记录
+            db.delete_plugin(plugin_uuid)
+        
         # 更新 list.ini 文件
         if app.config['FTP_ENABLED']:
             ftp_manager.update_ini_file()
@@ -339,8 +346,8 @@ def api_plugins():
                 'total_downloads': plugin['total_downloads'],
                 'icon_path': plugin.get('icon_path', ''),
                 'supported_platform': plugin.get('supported_platform', ''),
-                'dependencies': plugin.get('dependencies', ''),
-                'license': plugin.get('license', ''),
+                'category': plugin.get('category', ''),  # 新增字段
+                'rating': plugin.get('rating', '5'),  # 新增字段
                 'gui': plugin.get('gui', 'button')
             })
     
@@ -378,8 +385,8 @@ def api_plugin_detail(plugin_uuid):
             'upload_time': version['upload_time'],
             'download_count': version['download_count'],
             'supported_platform': version['supported_platform'],
-            'dependencies': version['dependencies'],
-            'license': version['license'],
+            'category': version.get('category', ''),  # 新增字段
+            'rating': version.get('rating', '5'),  # 新增字段
             'checksum': version['checksum']
         }
         
@@ -441,8 +448,8 @@ def plugin_detail(plugin_uuid):
                 plugin_type = request.form.get('type', 'executable')
                 gui_type = request.form.get('gui', 'button')
                 supported_platform = request.form.get('supported_platform', '')
-                dependencies = request.form.get('dependencies', '')
-                license_type = request.form.get('license', '')
+                category = request.form.get('category', '')  # 新增字段
+                rating = request.form.get('rating', '5')  # 新增字段
                 
                 original_filename = secure_filename(file.filename)
                 file_hash = hashlib.md5(f'{name}_{new_version}_{original_filename}'.encode()).hexdigest()
@@ -488,8 +495,8 @@ def plugin_detail(plugin_uuid):
                     'file_path': file_path,
                     'file_size': file_size,
                     'supported_platform': supported_platform,
-                    'dependencies': dependencies,
-                    'license': license_type
+                    'category': category,  # 新增字段
+                    'rating': rating  # 新增字段
                 }
                 
                 db.add_plugin_version(plugin_uuid, version_data)

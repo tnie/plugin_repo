@@ -49,8 +49,8 @@ class Database:
                 download_count INTEGER DEFAULT 0,
                 file_size INTEGER,
                 supported_platform TEXT,
-                dependencies TEXT,
-                license TEXT,
+                category TEXT,  -- 新增字段
+                rating INTEGER DEFAULT 5,  -- 新增字段，默认5星
                 FOREIGN KEY (plugin_uuid) REFERENCES plugins (plugin_uuid),
                 UNIQUE(plugin_uuid, version)
             )
@@ -146,7 +146,7 @@ class Database:
             INSERT INTO plugin_versions (
                 plugin_uuid, version, version_sort, type, gui, icon_path,
                 checksum, filename, original_filename, file_path,
-                file_size, supported_platform, dependencies, license
+                file_size, supported_platform, category, rating
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             plugin_uuid,
@@ -161,8 +161,8 @@ class Database:
             version_data['file_path'],
             version_data.get('file_size', 0),
             version_data.get('supported_platform', ''),
-            version_data.get('dependencies', ''),
-            version_data.get('license', '')
+            version_data.get('category', ''),  # 新增字段
+            version_data.get('rating', 5)  # 新增字段
         ))
         
         version_id = cursor.lastrowid
@@ -221,8 +221,8 @@ class Database:
                 v.download_count,
                 v.file_size,
                 v.supported_platform,
-                v.dependencies,
-                v.license
+                v.category,  -- 新增字段
+                v.rating  -- 新增字段
             FROM plugins p
             LEFT JOIN plugin_versions v ON 
                 p.plugin_uuid = v.plugin_uuid AND 
@@ -425,7 +425,7 @@ class Database:
         values = []
         
         for field, value in update_data.items():
-            if field in ['version', 'type', 'gui', 'supported_platform', 'dependencies', 'license']:
+            if field in ['version', 'type', 'gui', 'supported_platform', 'category', 'rating']:
                 update_fields.append(f"{field} = ?")
                 values.append(value)
         
