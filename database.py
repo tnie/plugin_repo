@@ -311,43 +311,42 @@ class Database:
     
     def delete_version(self, version_id):
         """删除指定版本"""
+        version = self.get_version_by_id(version_id)  # 确保先查询版本信息
+        if not version:
+            return None
+        
+        # 删除版本记录
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # 获取版本信息
-        cursor.execute('SELECT * FROM plugin_versions WHERE id = ?', (version_id,))
-        version = cursor.fetchone()
+        cursor.execute('DELETE FROM plugin_versions WHERE id = ?', (version_id,))
         
-        if version:
-            plugin_uuid = version[1]
-            version_number = version[2]
+        plugin_uuid = version['plugin_uuid']
+        version_number = version['version']
+        
+        # 如果删除的是最新版本，需要重新计算最新版本
+        cursor.execute('SELECT latest_version FROM plugins WHERE plugin_uuid = ?', (plugin_uuid,))
+        latest_version_result = cursor.fetchone()
+        
+        if latest_version_result and latest_version_result[0] == version_number:
+            # 获取版本号最大的版本
+            cursor.execute('''
+                SELECT version FROM plugin_versions 
+                WHERE plugin_uuid = ? 
+                ORDER BY version_sort DESC 
+                LIMIT 1
+            ''', (plugin_uuid,))
+            new_latest = cursor.fetchone()
             
-            # 删除版本
-            cursor.execute('DELETE FROM plugin_versions WHERE id = ?', (version_id,))
-            
-            # 如果删除的是最新版本，需要重新计算最新版本
-            cursor.execute('SELECT latest_version FROM plugins WHERE plugin_uuid = ?', (plugin_uuid,))
-            latest_version_result = cursor.fetchone()
-            
-            if latest_version_result and latest_version_result[0] == version_number:
-                # 获取版本号最大的版本
-                cursor.execute('''
-                    SELECT version, version_sort FROM plugin_versions 
-                    WHERE plugin_uuid = ?
-                    ORDER BY version_sort DESC
-                    LIMIT 1
-                ''', (plugin_uuid,))
-                new_latest = cursor.fetchone()
-                
-                if new_latest:
-                    cursor.execute('UPDATE plugins SET latest_version = ? WHERE plugin_uuid = ?', (new_latest[0], plugin_uuid))
-                else:
-                    cursor.execute('UPDATE plugins SET latest_version = NULL WHERE plugin_uuid = ?', (plugin_uuid,))
+            if new_latest:
+                cursor.execute('UPDATE plugins SET latest_version = ? WHERE plugin_uuid = ?', (new_latest[0], plugin_uuid))
+            else:
+                cursor.execute('UPDATE plugins SET latest_version = NULL WHERE plugin_uuid = ?', (plugin_uuid,))
         
         conn.commit()
         conn.close()
         
-        return dict(version) if version else None
+        return version
     
     def increment_download_count(self, version_id):
         """增加版本下载计数"""

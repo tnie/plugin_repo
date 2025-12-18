@@ -235,11 +235,14 @@ def delete_version(version_id):
         return jsonify({'error': '未授权'}), 401
     
     # 获取版本信息
-    version = db.delete_version(version_id)
+    version = db.get_version_by_id(version_id)  # 确保先查询版本信息
     if not version:
         return jsonify({'error': '版本不存在'}), 404
     
     try:
+        # 删除版本记录
+        db.delete_version(version_id)
+        
         # 删除文件
         file_path = version['file_path']
         if file_path and os.path.exists(file_path):
