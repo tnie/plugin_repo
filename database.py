@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 from datetime import datetime
 import uuid
+import re
 
 class Database:
     def __init__(self, db_path):
@@ -36,6 +37,7 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 plugin_uuid TEXT NOT NULL,
                 version TEXT NOT NULL,
+                version_sort TEXT,  -- 新增：用于排序的版本字段
                 type TEXT NOT NULL,
                 gui TEXT DEFAULT 'button',
                 icon_path TEXT,
@@ -73,6 +75,43 @@ class Database:
         conn.commit()
         conn.close()
     
+    def _normalize_version(self, version_str):
+        """规范化版本号，用于排序比较"""
+        # 移除非数字和点的字符
+        version_clean = re.sub(r'[^0-9.]', '', version_str)
+        
+        # 分割为数字部分
+        parts = version_clean.split('.')
+        
+        # 确保至少有3部分（主版本.次版本.修订号）
+        while len(parts) < 3:
+            parts.append('0')
+        
+        # 将每部分转换为整数，然后格式化为固定长度的字符串
+        normalized_parts = []
+        for part in parts:
+            try:
+                num = int(part)
+                # 格式化为5位数字，保证排序正确
+                normalized_parts.append(f"{num:05d}")
+            except ValueError:
+                normalized_parts.append("00000")
+        
+        # 返回可用于排序的字符串
+        return '.'.join(normalized_parts)
+    
+    def _compare_versions(self, version1, version2):
+        """比较两个版本号，返回1表示version1更大，-1表示version2更大，0表示相等"""
+        norm1 = self._normalize_version(version1)
+        norm2 = self._normalize_version(version2)
+        
+        if norm1 > norm2:
+            return 1
+        elif norm1 < norm2:
+            return -1
+        else:
+            return 0
+    
     def create_plugin(self, plugin_data):
         """创建新插件（主记录）"""
         conn = self.get_connection()
@@ -100,15 +139,19 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
+        version = version_data['version']
+        version_sort = self._normalize_version(version)
+        
         cursor.execute('''
             INSERT INTO plugin_versions (
-                plugin_uuid, version, type, gui, icon_path,
+                plugin_uuid, version, version_sort, type, gui, icon_path,
                 checksum, filename, original_filename, file_path,
                 file_size, supported_platform, dependencies, license
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             plugin_uuid,
-            version_data['version'],
+            version,
+            version_sort,
             version_data['type'],
             version_data.get('gui', 'button'),
             version_data.get('icon_path', ''),
@@ -124,12 +167,27 @@ class Database:
         
         version_id = cursor.lastrowid
         
+        # 获取当前最新版本
+        cursor.execute('SELECT latest_version FROM plugins WHERE plugin_uuid = ?', (plugin_uuid,))
+        result = cursor.fetchone()
+        current_latest = result[0] if result else None
+        
+        # 比较版本号，选择最大的作为最新版本
+        if current_latest is None:
+            new_latest = version
+        else:
+            # 比较版本号，选择更大的
+            if self._compare_versions(version, current_latest) > 0:
+                new_latest = version
+            else:
+                new_latest = current_latest
+        
         # 更新插件的最新版本
         cursor.execute('''
             UPDATE plugins 
             SET latest_version = ?, updated_time = CURRENT_TIMESTAMP
             WHERE plugin_uuid = ?
-        ''', (version_data['version'], plugin_uuid))
+        ''', (new_latest, plugin_uuid))
         
         conn.commit()
         conn.close()
@@ -189,7 +247,7 @@ class Database:
         return dict(plugin) if plugin else None
     
     def get_plugin_versions(self, plugin_uuid):
-        """获取插件的所有版本"""
+        """获取插件的所有版本（按版本号降序排列）"""
         conn = self.get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -197,7 +255,7 @@ class Database:
         cursor.execute('''
             SELECT * FROM plugin_versions 
             WHERE plugin_uuid = ? 
-            ORDER BY upload_time DESC
+            ORDER BY version_sort DESC, upload_time DESC
         ''', (plugin_uuid,))
         
         versions = cursor.fetchall()
@@ -217,7 +275,7 @@ class Database:
         return dict(version) if version else None
     
     def get_latest_version(self, plugin_uuid):
-        """获取插件的最新版本"""
+        """获取插件的最新版本（版本号最大的）"""
         conn = self.get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -267,16 +325,21 @@ class Database:
             # 删除版本
             cursor.execute('DELETE FROM plugin_versions WHERE id = ?', (version_id,))
             
-            # 如果删除的是最新版本，需要更新插件的最新版本
+            # 如果删除的是最新版本，需要重新计算最新版本
             cursor.execute('SELECT latest_version FROM plugins WHERE plugin_uuid = ?', (plugin_uuid,))
             latest_version_result = cursor.fetchone()
             
             if latest_version_result and latest_version_result[0] == version_number:
-                # 获取最新的版本号
-                cursor.execute('SELECT MAX(version) FROM plugin_versions WHERE plugin_uuid = ?', (plugin_uuid,))
+                # 获取版本号最大的版本
+                cursor.execute('''
+                    SELECT version, version_sort FROM plugin_versions 
+                    WHERE plugin_uuid = ?
+                    ORDER BY version_sort DESC
+                    LIMIT 1
+                ''', (plugin_uuid,))
                 new_latest = cursor.fetchone()
                 
-                if new_latest and new_latest[0]:
+                if new_latest:
                     cursor.execute('UPDATE plugins SET latest_version = ? WHERE plugin_uuid = ?', (new_latest[0], plugin_uuid))
                 else:
                     cursor.execute('UPDATE plugins SET latest_version = NULL WHERE plugin_uuid = ?', (plugin_uuid,))
@@ -344,6 +407,34 @@ class Database:
                 {', '.join(update_fields)},
                 updated_time = CURRENT_TIMESTAMP
                 WHERE plugin_uuid = ?
+            '''
+            
+            cursor.execute(update_sql, values)
+        
+        conn.commit()
+        conn.close()
+        
+        return True
+    
+    def update_version_info(self, version_id, update_data):
+        """更新版本信息"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        update_fields = []
+        values = []
+        
+        for field, value in update_data.items():
+            if field in ['version', 'type', 'gui', 'supported_platform', 'dependencies', 'license']:
+                update_fields.append(f"{field} = ?")
+                values.append(value)
+        
+        if update_fields:
+            values.append(version_id)
+            update_sql = f'''
+                UPDATE plugin_versions SET
+                {', '.join(update_fields)}
+                WHERE id = ?
             '''
             
             cursor.execute(update_sql, values)
