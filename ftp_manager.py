@@ -1,5 +1,6 @@
 import configparser
 import os
+from flask import url_for
 from database import Database
 
 class FTPManager:
@@ -62,7 +63,20 @@ class FTPManager:
             # 文件路径 - 使用三级目录结构
             if plugin.get('filename') and plugin.get('plugin_uuid') and plugin.get('latest_version'):
                 ftp_file_path = f'uploads/{plugin["plugin_uuid"]}/{plugin["latest_version"]}/{plugin["filename"]}'
-                config.set(section_name, 'path', ftp_file_path)
+                config.set(section_name, 'path_ftp', ftp_file_path)
+            
+            # 文件路径 - 使用真实 HTTP 下载地址
+            if plugin.get('version_id'):
+                http_file_path = url_for('download_plugin', version_id=plugin['version_id'], _external=True)
+                config.set(section_name, 'path', http_file_path)
+            
+            # 文件大小
+            file_size = plugin.get('file_size', 0)
+            config.set(section_name, 'size', str(file_size))
+            
+            # 上传时间
+            upload_time = plugin.get('upload_time', '未知时间')
+            config.set(section_name, 'upload_time', upload_time)
             
             # 新增属性：打分
             rating = plugin.get('rating', 5)  # 默认5星好评
