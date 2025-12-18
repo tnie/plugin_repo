@@ -42,7 +42,7 @@ class Config:
             try:
                 from PIL import Image, ImageDraw
                 img = Image.new('RGB', (64, 64), color='#007bff')
-                draw = Image.draw(img)
+                draw = ImageDraw.Draw(img)
                 draw.ellipse([10, 10, 54, 54], fill='#ffffff')
                 img.save(default_icon, 'PNG')
             except:

@@ -3,7 +3,7 @@
 <head>
     <title>插件详情 - {{ plugin.name }}</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 20px auto; padding: 20px; }
         .container { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         h1 { color: #333; margin: 0; }
@@ -19,7 +19,7 @@
         .current-icon { width: 64px; height: 64px; margin-right: 15px; }
         .icon-preview { display: flex; align-items: center; margin: 15px 0; }
         .stats { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
         .stat-item { text-align: center; }
         .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
         .stat-label { font-size: 12px; color: #666; }
@@ -30,6 +30,15 @@
         .file-info { background: #f8f9fa; padding: 10px; border-radius: 4px; }
         .delete-btn { padding: 8px 16px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; display: inline-block; text-align: center; }
         .delete-btn:hover { background: #c82333; }
+        .version-list { margin-top: 30px; }
+        .version-item { border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 10px; }
+        .version-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .version-title { font-weight: bold; font-size: 16px; }
+        .version-meta { color: #666; font-size: 14px; }
+        .version-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .version-current { background: #e7f3ff; border-left: 4px solid #007bff; }
+        .upload-new-version { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 20px; }
+        .upload-new-version h3 { margin-top: 0; }
     </style>
 </head>
 <body>
@@ -41,7 +50,7 @@
         
         {% if session.get('admin_logged_in') %}
         <div class="edit-mode">
-            <strong>管理员编辑模式</strong> - 您可以修改插件的所有属性
+            <strong>管理员编辑模式</strong> - 您可以修改插件信息和管理版本
         </div>
         {% endif %}
         
@@ -56,16 +65,20 @@
         <div class="stats">
             <div class="stats-grid">
                 <div class="stat-item">
-                    <div class="stat-value">{{ plugin.download_count }}</div>
-                    <div class="stat-label">下载次数</div>
+                    <div class="stat-value">{{ plugin.total_downloads }}</div>
+                    <div class="stat-label">总下载次数</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value">{{ plugin.file_size|filesizeformat }}</div>
-                    <div class="stat-label">文件大小</div>
+                    <div class="stat-value">{{ versions|length }}</div>
+                    <div class="stat-label">版本数量</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value">{{ plugin.version }}</div>
-                    <div class="stat-label">当前版本</div>
+                    <div class="stat-value">{{ plugin.latest_version }}</div>
+                    <div class="stat-label">最新版本</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ plugin.created_time[:10] }}</div>
+                    <div class="stat-label">创建时间</div>
                 </div>
             </div>
         </div>
@@ -83,44 +96,6 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>插件类型:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <select name="type">
-                            <option value="executable" {% if plugin.type == 'executable' %}selected{% endif %}>可执行文件</option>
-                            <option value="library" {% if plugin.type == 'library' %}selected{% endif %}>库文件</option>
-                            <option value="script" {% if plugin.type == 'script' %}selected{% endif %}>脚本</option>
-                            <option value="package" {% if plugin.type == 'package' %}selected{% endif %}>包/压缩文件</option>
-                            <option value="other" {% if plugin.type == 'other' %}selected{% endif %}>其他</option>
-                        </select>
-                        {% else %}
-                        <input type="text" value="{{ plugin.type }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>交互入口:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <select name="gui">
-                            <option value="button" {% if plugin.gui == 'button' %}selected{% endif %}>按钮 (button)</option>
-                            <option value="menu" {% if plugin.gui == 'menu' %}selected{% endif %}>菜单 (menu)</option>
-                        </select>
-                        {% else %}
-                        <input type="text" value="{{ plugin.gui }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="col">
-                    <div class="form-group">
-                        <label>版本:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <input type="text" name="version" value="{{ plugin.version }}" required>
-                        {% else %}
-                        <input type="text" value="{{ plugin.version }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
-                    </div>
-                    
-                    <div class="form-group">
                         <label>作者:</label>
                         {% if session.get('admin_logged_in') %}
                         <input type="text" name="author" value="{{ plugin.author or '' }}">
@@ -128,14 +103,17 @@
                         <input type="text" value="{{ plugin.author or '' }}" readonly style="background: #f8f9fa;">
                         {% endif %}
                     </div>
+                </div>
+                
+                <div class="col">
+                    <div class="form-group">
+                        <label>最新版本:</label>
+                        <input type="text" value="{{ plugin.latest_version or '暂无' }}" readonly style="background: #f8f9fa;">
+                    </div>
                     
                     <div class="form-group">
-                        <label>许可证:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <input type="text" name="license" value="{{ plugin.license or '' }}">
-                        {% else %}
-                        <input type="text" value="{{ plugin.license or '' }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
+                        <label>插件UUID:</label>
+                        <input type="text" value="{{ plugin.plugin_uuid }}" readonly style="background: #f8f9fa; font-family: monospace; font-size: 12px;">
                     </div>
                 </div>
             </div>
@@ -149,94 +127,164 @@
                 {% endif %}
             </div>
             
-            <div class="row">
-                <div class="col">
-                    <div class="form-group">
-                        <label>支持平台:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <input type="text" name="supported_platform" value="{{ plugin.supported_platform or '' }}">
-                        {% else %}
-                        <input type="text" value="{{ plugin.supported_platform or '' }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="form-group">
-                        <label>依赖项:</label>
-                        {% if session.get('admin_logged_in') %}
-                        <input type="text" name="dependencies" value="{{ plugin.dependencies or '' }}">
-                        {% else %}
-                        <input type="text" value="{{ plugin.dependencies or '' }}" readonly style="background: #f8f9fa;">
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            {% if plugin.icon_path %}
+            {% if latest_version and latest_version.icon_path %}
             <div class="icon-preview">
-                <img src="/icon/{{ plugin.id }}" alt="插件图标" class="current-icon">
+                <img src="/icon/{{ plugin.plugin_uuid }}/{{ latest_version.version }}" alt="插件图标" class="current-icon">
                 <div>
-                    <strong>当前图标:</strong><br>
+                    <strong>当前图标 (v{{ latest_version.version }}):</strong><br>
                     {% if session.get('admin_logged_in') %}
                     <input type="file" name="icon_file" accept="image/*">
-                    <small>留空则保持当前图标</small>
+                    <small>上传新版本时使用的图标</small>
                     {% endif %}
                 </div>
             </div>
             {% elif session.get('admin_logged_in') %}
             <div class="form-group">
-                <label>上传图标:</label>
+                <label>上传新版本图标:</label>
                 <input type="file" name="icon_file" accept="image/*">
                 <small>可选，支持 PNG, JPG, SVG 格式</small>
             </div>
             {% endif %}
             
-            <div class="form-group">
-                <label>文件信息:</label>
-                <div class="file-info">
-                    <strong>{{ plugin.original_filename }}</strong> ({{ plugin.file_size|filesizeformat }})<br>
-                    上传时间: {{ plugin.upload_time }}<br>
-                    校验和: <code>{{ plugin.checksum }}</code><br>
-                    <a href="/download/{{ plugin.id }}">直接下载</a>
-                </div>
-            </div>
-            
             {% if session.get('admin_logged_in') %}
-            <div class="form-group">
-                <label>更新插件文件:</label>
-                <input type="file" name="plugin_file">
-                <small>留空则保持当前文件</small>
+            <div class="upload-new-version">
+                <h3>上传新版本</h3>
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label>新版本号:</label>
+                            <input type="text" name="version" placeholder="例如: 1.0.1">
+                            <small>留空将自动递增版本号</small>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label>插件类型:</label>
+                            <select name="type">
+                                <option value="executable">可执行文件</option>
+                                <option value="library">库文件</option>
+                                <option value="script">脚本</option>
+                                <option value="package">包/压缩文件</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="form-group">
+                            <label>交互入口:</label>
+                            <select name="gui">
+                                <option value="button">按钮 (button)</option>
+                                <option value="menu">菜单 (menu)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-group">
+                            <label>支持平台:</label>
+                            <input type="text" name="supported_platform" placeholder="例如: Windows, Linux, macOS">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>新版本文件:</label>
+                    <input type="file" name="plugin_file">
+                </div>
             </div>
             {% endif %}
             
             {% if session.get('admin_logged_in') %}
             <div class="actions">
                 <button type="submit" class="save-btn">保存更改</button>
-                <a href="/download/{{ plugin.id }}" class="back-btn">下载插件</a>
+                {% if latest_version %}
+                <a href="/download/{{ latest_version.id }}" class="back-btn">下载最新版本</a>
+                {% endif %}
             </div>
             {% else %}
             <div class="actions">
-                <a href="/download/{{ plugin.id }}" class="save-btn">下载插件</a>
+                {% if latest_version %}
+                <a href="/download/{{ latest_version.id }}" class="save-btn">下载最新版本</a>
+                {% endif %}
             </div>
             {% endif %}
         </form>
         
-        <!-- 将删除按钮移出表单，放在表单下方 -->
+        <!-- 版本列表 -->
+        <div class="version-list">
+            <h3>所有版本 ({{ versions|length }})</h3>
+            
+            {% if versions %}
+                {% for version in versions %}
+                <div class="version-item {% if version.version == plugin.latest_version %}version-current{% endif %}">
+                    <div class="version-header">
+                        <div class="version-title">
+                            v{{ version.version }}
+                            {% if version.version == plugin.latest_version %}
+                            <span style="color: #28a745; font-size: 12px; margin-left: 10px;">✓ 最新版本</span>
+                            {% endif %}
+                        </div>
+                        <div class="version-meta">
+                            上传时间: {{ version.upload_time[:19] }}
+                        </div>
+                    </div>
+                    
+                    <div class="version-meta">
+                        <span>类型: {{ version.type }}</span> | 
+                        <span>交互入口: {{ version.gui }}</span> | 
+                        <span>大小: {{ version.file_size|filesizeformat }}</span> | 
+                        <span>下载: {{ version.download_count }}</span>
+                    </div>
+                    
+                    {% if version.supported_platform %}
+                    <div class="version-meta">
+                        支持平台: {{ version.supported_platform }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if version.dependencies %}
+                    <div class="version-meta">
+                        依赖项: {{ version.dependencies }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if version.license %}
+                    <div class="version-meta">
+                        许可证: {{ version.license }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="version-actions">
+                        <a href="/download/{{ version.id }}" class="back-btn">下载此版本</a>
+                        {% if session.get('admin_logged_in') %}
+                        <button class="delete-btn" onclick="deleteVersion({{ version.id }}, '{{ version.version }}')">删除此版本</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>暂无版本信息</p>
+            {% endif %}
+        </div>
+        
+        <!-- 删除插件按钮 -->
         {% if session.get('admin_logged_in') %}
-        <div class="actions" style="margin-top: 10px; justify-content: flex-start;">
-            <a href="javascript:void(0)" onclick="deletePlugin({{ plugin.id }}, '{{ plugin.name }}')" class="delete-btn">删除插件</a>
+        <div class="actions" style="margin-top: 30px; justify-content: flex-start;">
+            <a href="javascript:void(0)" onclick="deletePlugin('{{ plugin.plugin_uuid }}', '{{ plugin.name }}')" class="delete-btn">删除整个插件（所有版本）</a>
         </div>
         {% endif %}
     </div>
     
     <script>
         // 删除插件
-        function deletePlugin(pluginId, pluginName) {
-            if (!confirm(`确定要删除插件 "${pluginName}" 吗？此操作不可撤销。`)) {
+        function deletePlugin(pluginUuid, pluginName) {
+            if (!confirm(`确定要删除插件 "${pluginName}" 及其所有版本吗？此操作不可撤销。`)) {
                 return;
             }
             
-            fetch(`/delete/${pluginId}`, {
+            fetch(`/delete/${pluginUuid}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -247,6 +295,33 @@
                 if (data.success) {
                     alert('插件删除成功');
                     window.location.href = '/'; // 返回插件列表
+                } else {
+                    alert(`删除失败: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('删除失败，请检查网络连接');
+            });
+        }
+        
+        // 删除版本
+        function deleteVersion(versionId, versionName) {
+            if (!confirm(`确定要删除版本 "${versionName}" 吗？此操作不可撤销。`)) {
+                return;
+            }
+            
+            fetch(`/delete_version/${versionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('版本删除成功');
+                    location.reload(); // 重新加载页面
                 } else {
                     alert(`删除失败: ${data.error}`);
                 }

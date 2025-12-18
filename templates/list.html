@@ -25,6 +25,8 @@
         .filter-bar select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .stats { background: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom: 20px; }
         .admin-tag { position: absolute; top: 10px; right: 10px; background: #ffc107; color: #333; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+        .version-badge { background: #17a2b8; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-left: 5px; }
+        .plugin-version { font-size: 14px; color: #666; margin-left: 10px; }
     </style>
     <script>
         function filterPlugins() {
@@ -44,12 +46,12 @@
             });
         }
         
-        function deletePlugin(pluginId, pluginName) {
+        function deletePlugin(pluginUuid, pluginName) {
             if (!confirm(`确定要删除插件 "${pluginName}" 吗？此操作不可撤销。`)) {
                 return;
             }
             
-            fetch(`/delete/${pluginId}`, {
+            fetch(`/delete/${pluginUuid}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -68,13 +70,6 @@
                 console.error('Error:', error);
                 alert('删除失败，请检查网络连接');
             });
-        }
-        
-        // 检查是否为管理员
-        function checkAdminStatus() {
-            // 这里可以通过 cookie 或其他方式检查，简化实现
-            // 实际项目中应该通过后端验证
-            return true; // 临时返回 true，实际应根据 session 判断
         }
     </script>
 </head>
@@ -119,21 +114,24 @@
             {% if session.get('admin_logged_in') %}
             <div class="admin-tag">管理</div>
             {% endif %}
-            <div class="plugin-name">{{ plugin.name }} v{{ plugin.version }}</div>
+            <div class="plugin-name">
+                {{ plugin.name }}
+                <span class="version-badge">v{{ plugin.latest_version }}</span>
+            </div>
             <div class="plugin-meta">
                 <span>作者: {{ plugin.author or '未知' }}</span> | 
                 <span>类型: {{ plugin.type }}</span> | 
-                <span>GUI: {{ plugin.gui or 'button' }}</span> |  <!-- 新增: 显示 GUI 类型 -->
-                <span>下载: {{ plugin.download_count }}</span>
+                <span>交互入口: {{ plugin.gui or 'button' }}</span> | 
+                <span>下载: {{ plugin.total_downloads or 0 }}</span>
             </div>
             <div class="plugin-description">
                 {{ plugin.description or '暂无描述' }}
             </div>
             <div class="plugin-actions">
-                <a href="/download/{{ plugin.id }}" class="download-btn">下载插件</a>
-                <a href="/detail/{{ plugin.id }}" class="info-btn">详情</a>
+                <a href="/download/{{ plugin.version_id }}" class="download-btn">下载最新版</a>
+                <a href="/detail/{{ plugin.plugin_uuid }}" class="info-btn">详情与版本</a>
                 {% if session.get('admin_logged_in') %}
-                <button class="delete-btn" onclick="deletePlugin({{ plugin.id }}, '{{ plugin.name }}')">删除</button>
+                <button class="delete-btn" onclick="deletePlugin('{{ plugin.plugin_uuid }}', '{{ plugin.name }}')">删除</button>
                 {% endif %}
             </div>
         </div>
@@ -151,9 +149,10 @@
         <p>API 接口:</p>
         <ul style="list-style: none; padding: 0;">
             <li><code>GET /api/plugins</code> - 获取插件列表(JSON)</li>
-            <li><code>GET /api/plugin/&lt;id&gt;</code> - 获取插件详情</li>
-            <li><code>GET /download/&lt;id&gt;</code> - 下载插件文件</li>
-            <li><code>POST /delete/&lt;id&gt;</code> - 删除插件(管理员)</li>
+            <li><code>GET /api/plugin/&lt;plugin_uuid&gt;</code> - 获取插件详情及所有版本</li>
+            <li><code>GET /download/&lt;version_id&gt;</code> - 下载指定版本插件文件</li>
+            <li><code>POST /delete/&lt;plugin_uuid&gt;</code> - 删除插件(管理员)</li>
+            <li><code>POST /delete_version/&lt;version_id&gt;</code> - 删除指定版本(管理员)</li>
             <li><code>GET /ftp/list.ini</code> - 获取 FTP 列表文件</li>
         </ul>
     </div>
